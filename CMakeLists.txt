@@ -9,6 +9,5 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets)
 # Enable MOC and UIC for Qt6
 set(CMAKE_AUTOMOC ON)
 
-add_executable(yt_dlp_gui main.cpp)
-
+add_executable(yt_dlp_gui main.cpp settings_window.h settings_window.cpp)
 target_link_libraries(yt_dlp_gui Qt6::Widgets)
