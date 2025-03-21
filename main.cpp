@@ -16,20 +16,20 @@ public:
     LogWindow(QWidget *parent = nullptr) : QWidget(parent) {
         QVBoxLayout *layout = new QVBoxLayout(this);
 
-        // Label for the input field
+        
         QLabel *urlLabel = new QLabel("Enter YouTube URL:", this);
         layout->addWidget(urlLabel);
 
-        // LineEdit to input YouTube URL
+        
         urlInput = new QLineEdit(this);
         layout->addWidget(urlInput);
 
-        // TextEdit for displaying logs
+        
         logTextEdit = new QTextEdit(this);
         logTextEdit->setReadOnly(true);  
         layout->addWidget(logTextEdit);
 
-        // Button to start download
+        
         startButton = new QPushButton("Start Download", this);
         layout->addWidget(startButton);
 
@@ -51,19 +51,19 @@ private slots:
         QString ytDlpCommand = "/opt/homebrew/bin/yt-dlp"; 
         QStringList arguments;
         
-        // Set the fixed save path to ~/Downloads/Music
+        
         QString savePath = QDir::homePath() + "/Downloads/Music";
         
-        arguments << "-f" << "bestaudio"  // Download best audio quality
+        arguments << "-f" << "bestaudio"
                   << "--ffmpeg-location" << "/opt/homebrew/bin/ffmpeg"
-                  << "--extract-audio"  // Extract audio only (no video)
-                  << "--audio-format" << "mp3"  // Set audio format to MP3
-                  << "--embed-metadata"  // Embed metadata
-                  << "--embed-thumbnail"  // Embed thumbnail
-                  << "--add-metadata"  // Add metadata
-                  << "--output" << savePath + "/%(title)s.%(ext)s"  // Set output path and filename
-                  << "--verbose"  // Show verbose output
-                  << videoURL;  // YouTube URL
+                  << "--extract-audio"
+                  << "--audio-format" << "mp3"
+                  << "--embed-metadata"
+                  << "--embed-thumbnail"
+                  << "--add-metadata"
+                  << "--output" << savePath + "/%(title)s.%(ext)s"
+                  << "--verbose"
+                  << videoURL;
 
         process = new QProcess(this);
         process->setProgram(ytDlpCommand);
@@ -97,10 +97,10 @@ private slots:
     }
 
 private:
-    QLineEdit *urlInput;      // Input field for URL
-    QTextEdit *logTextEdit;   // TextEdit for logs
-    QPushButton *startButton; // Button to start the download
-    QProcess *process;        // Process to handle yt-dlp
+    QLineEdit *urlInput;
+    QTextEdit *logTextEdit;
+    QPushButton *startButton; 
+    QProcess *process;        
 };
 
 int main(int argc, char *argv[]) {
