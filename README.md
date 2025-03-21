@@ -4,7 +4,7 @@
 > Create a folder call Music in Downloads Directory
 
 > [!IMPORTANT]
-> Install ffmpeg & qt using ``` brew install ffmpeg ``` && ``` brew install qt ```
+> Install dependencies  using ``` brew install ffmpeg qt yt-dlp ```
 
 > ![Screenshot 2025-03-21 at 12 14 42 PM](https://github.com/user-attachments/assets/bc084798-6971-46f9-8c9c-2af120664614)
 
