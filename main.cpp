@@ -12,6 +12,7 @@
 #include <QSettings>
 
 #include "settings_window.h"
+#include "Utils.hpp"
 
 class LogWindow : public QWidget
 {
@@ -20,6 +21,7 @@ class LogWindow : public QWidget
 public:
     LogWindow(QWidget *parent = nullptr) : QWidget(parent)
     {
+
         layout = new QVBoxLayout(this);
         settings = new QSettings("DarkMission", "YouTubeDownloader");
         if (settings->value("save_path").isNull())
@@ -43,8 +45,8 @@ public:
         settingsButton->setFixedSize(urlInput->geometry().height(), urlInput->geometry().height());
         settingsButton->setText("⚙️");
         auto font = settingsButton->font();
-        //font.setPointSize(15);
-        //settingsButton->setFont(font);
+        // font.setPointSize(15);
+        // settingsButton->setFont(font);
         urlLayout->addWidget(settingsButton);
 
         layout->addLayout(urlLayout); // Add the horizontal layout to the main layout
@@ -55,6 +57,14 @@ public:
         logTextEdit = new QTextEdit(this);
         logTextEdit->setReadOnly(true);
         layout->addWidget(logTextEdit);
+        if (RunSystemCommand::output("which yt-dlp").isNull())
+        {
+            logTextEdit->append("[Error]yt-dlp not installed!");
+        }
+        if (RunSystemCommand::output("which ffmpeg").isNull())
+        {
+            logTextEdit->append("[Error]ffmpeg not installed!");
+        }
 
         // Button to start download
         startButton = new QPushButton("Start Download", this);
@@ -87,7 +97,9 @@ private slots:
             return;
         }
 
-        QString ytDlpCommand = "/opt/homebrew/bin/yt-dlp";
+        QString ytDlpCommand = RunSystemCommand::output("which yt-dlp");
+        logTextEdit->append("yt-dlp found on :" + ytDlpCommand);
+        logTextEdit->append("ffmpeg found on :" + RunSystemCommand::output("which ffmpeg"));
         QStringList arguments;
 
         // Set the fixed save path to ~/Downloads/Music
@@ -95,8 +107,8 @@ private slots:
 
         arguments << "-f" << "bestaudio" // Download best audio quality
                   << "--audio-quality" << "0"
-                  << "--ffmpeg-location" << "/opt/homebrew/bin/ffmpeg"
-                  << "--extract-audio"                             // Extract audio only (no video)
+                  << "--ffmpeg-location" << RunSystemCommand::output("which ffmpeg")
+                  << "--extract-audio" // Extract audio only (no video)
                   << "--audio-format" << settings->value("audio_format").toString()
                   << "--embed-metadata"                            // Embed metadata
                   << "--embed-thumbnail"                           // Embed thumbnail
