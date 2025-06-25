@@ -3,3 +3,5 @@
 build
 build/*
 yt_dlp_gui
+*.dmg
+*.shadow

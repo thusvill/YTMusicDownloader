@@ -1,35 +1,53 @@
-#include <QWidget>
-#include <QLayout>
 #include <QHBoxLayout>
+#include <QLayout>
 #include <QProcess>
+#include <QWidget>
 
-class HorizontalLayout
-{
+class HorizontalLayout {
 public:
-    HorizontalLayout(QWidget *parent)
-    {
-        layout = new QHBoxLayout(parent);
-    }
-    QHBoxLayout *Get() { return layout; }
+  HorizontalLayout(QWidget *parent) { layout = new QHBoxLayout(parent); }
+  QHBoxLayout *Get() { return layout; }
 
 private:
-    QHBoxLayout *layout;
+  QHBoxLayout *layout;
 };
 
 class RunSystemCommand {
 public:
-    static QString output(const QString& command) {
-        QProcess process;
-        process.setProcessChannelMode(QProcess::MergedChannels); // Capture both stdout & stderr
-#ifdef Q_OS_WIN
-        process.start("cmd.exe", {"/c", command}); // Use Windows cmd
-#else
-        process.start("/bin/sh", {"-c", command}); // Use Unix shell
-#endif
-        if (!process.waitForFinished()) {
-            return "Error: Process failed to finish.";
-        }
+  static QString output(const QString &command) {
+    QProcess process;
+    process.setProcessChannelMode(QProcess::MergedChannels);
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
 
-        return process.readAllStandardOutput().trimmed(); // Remove extra newlines
+    QString path = env.value("PATH");
+    path += ":/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin";
+    env.insert("PATH", path);
+    process.setProcessEnvironment(env);
+
+#ifdef Q_OS_WIN
+    QString shell = "cmd.exe";
+    QStringList args = {"/c", command};
+#else
+    QString shell = "/bin/bash";
+    QStringList args = {"-c", command};
+#endif
+
+    process.start(shell, args);
+
+    if (!process.waitForStarted()) {
+      return "Error: Failed to start process: " + shell;
     }
-};;
+
+    if (!process.waitForFinished()) {
+      return "Error: Process failed to finish.";
+    }
+
+    int exitCode = process.exitCode();
+    QString result = process.readAllStandardOutput().trimmed();
+    if (exitCode != 0) {
+      result.prepend("Warning: Non-zero exit code.\n");
+    }
+
+    return result;
+  }
+};
