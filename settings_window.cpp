@@ -8,7 +8,7 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QDialog(parent)
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint); // Remove context help button
     setWindowTitle("Settings");
 
-    // Set up layout and widgets
+   
     QVBoxLayout *settingsLayout = new QVBoxLayout(this);
 
     QSettings settings("DarkMission", "YouTubeDownloader");
@@ -61,7 +61,7 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QDialog(parent)
     connect(saveButton, &QPushButton::clicked, this, &SettingsWindow::saveSettings);
 
     setLayout(settingsLayout);
-    resize(600, 400); // Resize window to desired size
+    resize(600, 400);
 }
 void SettingsWindow::selectFolder()
 {

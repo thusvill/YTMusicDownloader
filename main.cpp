@@ -126,54 +126,89 @@ private slots:
             &LogWindow::readError);
     connect(process,
             QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this,
-            &LogWindow::postDownloadProcess);
+            &LogWindow::postDownload);
 
     process->start();
   }
-  void postDownloadProcess(int exitCode, QProcess::ExitStatus exitStatus) {
-    if (exitStatus != QProcess::NormalExit) {
-      logTextEdit->append("\nDownload failed.");
-      return;
-    }
-
-    logTextEdit->append("\nDownload complete! Cropping cover and embedding...");
-
+  void postDownload() {
     QString savePath = settings->value("save_path").toString();
+    QString audioFormat = settings->value("audio_format").toString();
     QDir dir(savePath);
-    QStringList imageFiles =
-        dir.entryList(QStringList() << "*.webp" << "*.jpg" << "*.jpeg",
-                      QDir::Files, QDir::Time);
-    QStringList audioFiles =
-        dir.entryList(QStringList() << "*.mp3", QDir::Files, QDir::Time);
+    QString ffmpegPath = RunSystemCommand::output("which ffmpeg").trimmed();
 
-    if (imageFiles.isEmpty() || audioFiles.isEmpty()) {
-      logTextEdit->append("Couldn't find downloaded image or audio file.");
-      return;
+    // List all audio and thumbnail files (newest first)
+    QStringList audioFiles = dir.entryList(QStringList() << "*." + audioFormat,
+                                           QDir::Files, QDir::Time);
+    QStringList thumbs = dir.entryList(QStringList() << "*.jpg" << "*.webp",
+                                       QDir::Files, QDir::Time);
+
+    int processed = 0;
+
+    for (const QString &audioFile : audioFiles) {
+      QString audioPath = dir.absoluteFilePath(audioFile);
+
+      // Match thumbnail by filename base
+      QString baseName = QFileInfo(audioFile).completeBaseName();
+      QString matchingThumb;
+      for (const QString &thumb : thumbs) {
+        if (QFileInfo(thumb).completeBaseName().startsWith(baseName)) {
+          matchingThumb = dir.absoluteFilePath(thumb);
+          break;
+        }
+      }
+
+      if (matchingThumb.isEmpty() || !QFile::exists(matchingThumb)) {
+        logTextEdit->append("⚠️ Skipping: No thumbnail found for " + audioFile);
+        continue;
+      }
+      if (QFileInfo(matchingThumb).suffix() == "webp") {
+        QString jpgPath = matchingThumb;
+        jpgPath.chop(5); // remove ".webp"
+        jpgPath += ".jpg";
+
+        QString convertCmd = QString("%1 -y -i \"%2\" \"%3\"")
+                                 .arg(ffmpegPath, matchingThumb, jpgPath);
+        RunSystemCommand::output(convertCmd);
+
+        QFile::remove(matchingThumb);
+        matchingThumb = jpgPath;
+      }
+
+      // Crop thumbnail
+      QString croppedThumb = dir.absoluteFilePath(
+          "cropped_" + QString::number(processed) + ".jpg");
+      QString cropCmd =
+          QString("%1 -y -i \"%2\" -vf "
+                  "\"crop='min(in_w,in_h)':'min(in_w,in_h)'\" \"%3\"")
+              .arg(ffmpegPath, matchingThumb, croppedThumb);
+      RunSystemCommand::output(cropCmd);
+
+      // Embed cropped thumbnail
+      QString finalPath = dir.absoluteFilePath("final_" + audioFile);
+      QString embedCmd =
+          QString("%1 -y -i \"%2\" -i \"%3\" -map 0 -map 1 -c copy "
+                  "-id3v2_version 3 "
+                  "-metadata:s:v title=\"Album cover\" -metadata:s:v "
+                  "comment=\"Cover (front)\" \"%4\"")
+              .arg(ffmpegPath, audioPath, croppedThumb, finalPath);
+      RunSystemCommand::output(embedCmd);
+
+      QFile::remove(audioPath);
+      QFile::rename(finalPath, audioPath);
+      QFile::remove(matchingThumb);
+      QFile::remove(croppedThumb);
+
+      logTextEdit->append("✅ Embedded art into: " +
+                          QFileInfo(audioPath).fileName());
+      processed++;
     }
 
-    QString imagePath = dir.filePath(imageFiles.first());
-    QString audioPath = dir.filePath(audioFiles.first());
-    QString croppedImagePath = dir.filePath("cropped.webp");
-
-    // 1. Crop the image
-    QProcess *cropProc = new QProcess(this);
-    QStringList cropArgs = {"-i", imagePath,       "-vf", "crop=in_h:in_h",
-                            "-y", croppedImagePath};
-    cropProc->start("ffmpeg", cropArgs);
-    cropProc->waitForFinished();
-
-    // 2. Embed the cropped image using eyeD3
-    QProcess *embedProc = new QProcess(this);
-    QStringList embedArgs = {"--add-image", croppedImagePath + ":FRONT_COVER",
-                             audioPath};
-    embedProc->start("eyeD3", embedArgs);
-    embedProc->waitForFinished();
-
-    // 3. Clean up both the original and cropped image
-    QFile::remove(imagePath);
-    QFile::remove(croppedImagePath);
-
-    logTextEdit->append("✅ Cropped, embedded, and cleaned up image files.");
+    if (processed == 0)
+      logTextEdit->append(
+          "⚠️ No files processed. Check thumbnails or format settings.");
+    else
+      logTextEdit->append("🎉 Done: " + QString::number(processed) +
+                          " tracks processed.");
   }
 
   void readOutput() {
@@ -190,28 +225,6 @@ private slots:
         logTextEdit->verticalScrollBar()->maximum());
   }
 
-  void downloadFinished(int exitCode, QProcess::ExitStatus exitStatus) {
-    if (exitStatus == QProcess::NormalExit) {
-      logTextEdit->append("\nDownload complete!");
-      layout->removeWidget(startButton);
-      startButton->deleteLater();
-      startButton = new QPushButton("New Download", this);
-      layout->addWidget(startButton);
-
-      connect(startButton, &QPushButton::clicked, this,
-              &LogWindow::startDownload);
-
-      layout->removeWidget(exitButton);
-      exitButton->deleteLater();
-      exitButton = new QPushButton("Done", this);
-      layout->addWidget(exitButton);
-      connect(exitButton, &QPushButton::clicked, qApp, &QApplication::quit);
-    } else {
-      logTextEdit->append("\nDownload failed with exit code: " +
-                          QString::number(exitCode));
-    }
-  }
-
 private:
   QLineEdit *urlInput;
   QTextEdit *logTextEdit;
@@ -224,7 +237,6 @@ private:
 };
 
 int main(int argc, char *argv[]) {
-
 
   QApplication app(argc, argv);
 
